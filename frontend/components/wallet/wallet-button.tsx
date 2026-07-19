@@ -1,8 +1,8 @@
 'use client';
 
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { Wallet, LogOut, Loader2, AlertCircle } from 'lucide-react';
+import { WalletConnectButton } from '@solana/wallet-adapter-react-ui';
+import { Wallet, LogOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { fetchAuthChallenge, verifyAuthSignature } from '@/services/api';
 import { shortenAddress } from '@/utils/shorten-address';
@@ -12,9 +12,7 @@ const ADDRESS_KEY = 'pitchside_wallet';
 
 export function WalletButton() {
   const { publicKey, connected, connecting, disconnect, signMessage } = useWallet();
-  const { setVisible } = useWalletModal();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
   const authenticatingRef = useRef(false);
@@ -35,7 +33,6 @@ export function WalletButton() {
 
       authenticatingRef.current = true;
       setLoading(true);
-      setError(null);
 
       try {
         const walletAddress = publicKey.toBase58();
@@ -51,7 +48,6 @@ export function WalletButton() {
         setAddress(walletAddress);
       } catch (err) {
         console.error('Wallet authentication failed:', err);
-        setError('Could not sign in. Please try again.');
         try {
           await disconnect();
         } catch {
@@ -66,11 +62,6 @@ export function WalletButton() {
     authenticate();
   }, [connected, publicKey, signMessage, authed, disconnect]);
 
-  function handleConnect() {
-    setError(null);
-    setVisible(true);
-  }
-
   function handleDisconnect() {
     try {
       disconnect();
@@ -81,7 +72,6 @@ export function WalletButton() {
     localStorage.removeItem(ADDRESS_KEY);
     setAuthed(false);
     setAddress(null);
-    setError(null);
   }
 
   if (authed && address) {
@@ -105,22 +95,11 @@ export function WalletButton() {
 
   return (
     <div className="flex items-center gap-2">
-      <button
-        onClick={handleConnect}
-        disabled={connecting || loading}
-        className="flex items-center justify-center gap-2 rounded-xl bg-pitch px-4 py-2 text-sm font-semibold text-midnight transition-all hover:opacity-90 disabled:opacity-60"
-      >
-        {connecting || loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Wallet className="h-4 w-4" />
-        )}
-        {loading ? 'Signing in…' : connecting ? 'Connecting…' : 'Connect Wallet'}
-      </button>
-      {error && (
-        <span className="flex items-center gap-1 text-xs text-danger" role="alert">
-          <AlertCircle className="h-3.5 w-3.5" />
-          {error}
+      <WalletConnectButton className="!bg-pitch !text-midnight !rounded-xl !px-4 !py-2 !text-sm !font-semibold !border-0 hover:!opacity-90" />
+      {loading && (
+        <span className="flex items-center gap-1 text-xs text-muted">
+          <Wallet className="h-3.5 w-3.5" />
+          Signing in…
         </span>
       )}
     </div>
