@@ -9,7 +9,7 @@ import 'dotenv/config';
 import { config } from './config/env.js';
 import { connectDatabase } from './config/database.js';
 import { txlineClient, ensureAuthenticated } from './services/txline.service.js';
-import { getLiveMatches, getUpcomingMatches, getCompletedMatches, getMatchById, getMatchTimeline, syncFixtures, processScoreUpdate } from './services/match.service.js';
+import { getLiveMatches, getUpcomingMatches, getCompletedMatches, getMatchById, getMatchTimeline, syncFixtures, refreshLiveMinutes, processScoreUpdate } from './services/match.service.js';
 import { Match } from './models/index.js';
 
 function txlineMatchId(fixtureId: number | string) {
@@ -367,10 +367,16 @@ async function startTxLINEStreams() {
           const fixtureId = raw.FixtureId ?? raw.fixtureId;
           if (!fixtureId) continue;
 
+          const clockSeconds =
+            raw.Clock?.Seconds ??
+            raw.Data?.Clock?.Seconds ??
+            raw.Score?.Clock?.Seconds ??
+            (typeof raw.clock === 'number' ? raw.clock : raw.clock?.Seconds);
+
           const action = raw.Action
             ? {
                 type: String(raw.Action),
-                minute: raw.Clock?.Seconds ?? raw.minute,
+                minute: clockSeconds != null ? Math.floor(clockSeconds / 60) : raw.minute,
                 participant: raw.Participant ?? raw.participant,
                 data: raw.Data ?? raw.data,
               }
@@ -382,7 +388,7 @@ async function startTxLINEStreams() {
             fixtureId: Number(fixtureId),
             gameState: raw.GameState ?? raw.gameState,
             stats: raw.Stats ?? raw.stats,
-            clock: raw.Clock?.Seconds ?? raw.clock?.Seconds ?? raw.clock,
+            clock: clockSeconds,
             actions: action ? [action] : raw.actions,
           };
 
@@ -458,6 +464,12 @@ async function startServer() {
   setInterval(() => {
     syncFixtures(io).catch((err) => console.error('Periodic fixture sync failed:', err));
   }, 60_000);
+
+  // Keep the displayed minute fresh from TxLINE snapshots and fire an AI
+  // pundit take on every 5-minute milestone while the match is live.
+  setInterval(() => {
+    refreshLiveMinutes(io).catch((err) => console.error('refreshLiveMinutes failed:', err));
+  }, 15_000);
 }
 
 startServer().catch((error) => {

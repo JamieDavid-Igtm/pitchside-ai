@@ -1,6 +1,7 @@
 import { Match, MatchEvent, IMatch, IMatchEvent } from '../models/index.js';
 import { txlineClient } from '../services/txline.service.js';
 import { processMatchEventWithAI } from '../services/ai-pipeline.service.js';
+import { generatePunditForEvent, generateMoodForEvent, type AIEventInput } from '../services/ai.service.js';
 import { dispatchEventNotification, dispatchFullTimeStoryNotification } from './notification.service.js';
 import { generateMatchStory } from './story.service.js';
 import { MatchStatus, EventType } from '../types/index.js';
@@ -146,6 +147,81 @@ export async function syncFixtures(
   }
 
   return results;
+}
+
+/**
+ * Polls TxLINE score snapshots for live matches and keeps the displayed minute
+ * (and status) fresh. Also triggers an AI pundit "match state" take on every
+ * 5-minute milestone so the assistant keeps narrating the game.
+ */
+export async function refreshLiveMinutes(
+  io: { to: (room: string) => { emit: (event: string, data: unknown) => void } }
+): Promise<void> {
+  if (!isDatabaseConnected()) return;
+
+  const live = await Match.find({ status: { $in: ['live', 'halftime'] } }).lean();
+  if (live.length === 0) return;
+
+  for (const match of live) {
+    try {
+      const fixtureId = Number(match.txlineMatchId);
+      const snapshot = await txlineClient.getScoresSnapshot(fixtureId);
+      const raw = Array.isArray(snapshot) ? snapshot[0] : snapshot;
+      if (!raw) continue;
+
+      const clockSeconds =
+        raw.Clock?.Seconds ?? raw.Data?.Clock?.Seconds ?? raw.Score?.Clock?.Seconds;
+      const status = deriveStatusFromActions(
+        [],
+        match.status,
+        raw.GameState
+      );
+
+      const minute = clockSeconds != null ? Math.floor(clockSeconds / 60) : match.minute;
+
+      const changed =
+        minute !== match.minute || status !== match.status;
+
+      if (changed) {
+        await Match.updateOne(
+          { _id: match._id },
+          { $set: { minute, status, updatedAt: new Date() } }
+        );
+        const updated = await Match.findById(match._id).lean();
+        io.to(`match:${match._id.toString()}`).emit('match:update', updated);
+      }
+
+      // AI pundit on every 5-minute milestone while the match is live.
+      if (status === 'live' && minute != null && minute % 5 === 0 && minute !== match.minute) {
+        const eventId = `milestone-${match._id.toString()}-${minute}`;
+        const baseInput: AIEventInput = {
+          matchId: match._id.toString(),
+          eventType: 'kickoff',
+          eventId,
+          txlineEventId: eventId,
+          minute,
+          team: undefined,
+          description: `Minute ${minute}: ${match.homeTeam} ${match.homeScore} - ${match.awayScore} ${match.awayTeam}.`,
+          score: { home: match.homeScore, away: match.awayScore },
+        };
+        const [commentary, mood] = await Promise.all([
+          generatePunditForEvent(baseInput, match as unknown as IMatch),
+          generateMoodForEvent(baseInput, match as unknown as IMatch),
+        ]);
+        io.to(`match:${match._id.toString()}`).emit('commentary:new', {
+          matchId: match._id.toString(),
+          commentary,
+        });
+        io.to(`match:${match._id.toString()}`).emit('mood:update', {
+          matchId: match._id.toString(),
+          mood,
+          currentMood: (match as { currentMood?: string }).currentMood,
+        });
+      }
+    } catch (error) {
+      console.error(`refreshLiveMinutes failed for ${match.txlineMatchId}:`, error);
+    }
+  }
 }
 
 export async function processScoreUpdate(
