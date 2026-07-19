@@ -1,0 +1,16 @@
+export const config = {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  port: parseInt(process.env.PORT || '5000', 10),
+  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/pitchside-ai',
+  txlineApiOrigin: process.env.TXLINE_API_ORIGIN || 'https://txline.txodds.com',
+  txlineGuestJwt: process.env.TXLINE_GUEST_JWT || '',
+  txlineApiToken: process.env.TXLINE_API_TOKEN || '',
+  txlineLeagues: process.env.TXLINE_LEAGUES?.split(',').map(Number).filter(Boolean) || [],
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
+  telegramWebhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
+  jwtSecret: process.env.JWT_SECRET || 'pitchside-dev-insecure-secret-change-me',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
+};

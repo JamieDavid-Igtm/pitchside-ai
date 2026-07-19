@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #0B0F14;
+    --foreground: #F5F7FA;
+    --surface: #141A21;
+    --elevated: #1B222C;
+    --border: #2B3440;
+    --primary: #00C853;
+    --secondary: #A7B0BA;
+    --muted: #7A8594;
+    --danger: #FF5252;
+    --warning: #FFC107;
+    --info: #42A5F5;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-midnight text-primary font-body antialiased;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes pulse-live {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-live {
+  animation: pulse-live 2s ease-in-out infinite;
+}

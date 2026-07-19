@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Env / secrets — NEVER commit real secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+!.env.example
+backend/.env.example
+frontend/.env.example
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Vercel / Railway
+.vercel
+.railway
