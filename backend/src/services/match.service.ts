@@ -294,8 +294,13 @@ export async function processScoreUpdate(
     const eventType = getEventType(action.type);
     if (!eventType) continue;
 
-    const eventId = `${fixtureId}-${action.type}-${action.minute || 0}-${action.participant || 0}`;
-    const team = action.participant === 1 ? match.homeTeam : match.awayTeam;
+        const eventId = `${fixtureId}-${action.type}-${action.minute || 0}-${action.participant || 0}`;
+        const team =
+          action.participant === 1
+            ? match.homeTeam
+            : action.participant === 2
+              ? match.awayTeam
+              : undefined;
     const description = getEventDescription(eventType, { minute: action.minute, participant: action.participant }, match);
 
     try {

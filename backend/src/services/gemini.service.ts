@@ -163,7 +163,15 @@ export async function generateStructured<T = unknown>(
   }
 
   const parsed = JSON.parse(text);
-  return schema.parse(parsed) as T;
+  // Be tolerant of Gemini returning valid-but-loosely-shaped JSON: fill missing
+  // required fields with '' instead of throwing, so we keep the real generated
+  // prose rather than a generic template fallback.
+  const requiredKeys = GEMINI_REQUIRED[model];
+  const out: Record<string, unknown> = {};
+  for (const key of requiredKeys) {
+    out[key] = parsed[key] ?? '';
+  }
+  return out as unknown as T;
 }
 
 export type {

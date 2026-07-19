@@ -377,7 +377,7 @@ async function startTxLINEStreams() {
             ? {
                 type: String(raw.Action),
                 minute: clockSeconds != null ? Math.floor(clockSeconds / 60) : raw.minute,
-                participant: raw.Participant ?? raw.participant,
+                participant: Number(raw.Participant ?? raw.participant ?? raw.Data?.Participant ?? raw.ParticipantId),
                 data: raw.Data ?? raw.data,
               }
             : undefined;
