@@ -7,6 +7,8 @@ export interface TxLINEFixture {
   StartTime: string | number;
   Participant1: string;
   Participant2: string;
+  Participant1Id?: number;
+  Participant2Id?: number;
   Participant1IsHome: boolean;
   GameState: number;
 }

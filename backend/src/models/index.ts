@@ -11,6 +11,8 @@ export interface IMatch extends Document {
   homeTeam: string;
   awayTeam: string;
   participant1IsHome: boolean;
+  participant1Id?: number;
+  participant2Id?: number;
   homeScore: number;
   awayScore: number;
   minute?: number;
@@ -48,6 +50,8 @@ const MatchSchema = new Schema<IMatch>(
   homeTeam: { type: String, required: true },
   awayTeam: { type: String, required: true },
   participant1IsHome: { type: Boolean, required: true, default: true },
+  participant1Id: { type: Number },
+  participant2Id: { type: Number },
   homeScore: { type: Number, default: 0 },
   awayScore: { type: Number, default: 0 },
     minute: { type: Number },

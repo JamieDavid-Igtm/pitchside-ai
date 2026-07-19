@@ -136,6 +136,8 @@ export async function syncFixtures(
           homeTeam: homeTeam || 'Unknown',
           awayTeam: awayTeam || 'Unknown',
           participant1IsHome: Boolean(fixture.Participant1IsHome),
+          participant1Id: Number(fixture.Participant1Id) || undefined,
+          participant2Id: Number(fixture.Participant2Id) || undefined,
           homeScore: 0,
           awayScore: 0,
           updatedAt: new Date(),
@@ -258,13 +260,9 @@ export async function processScoreUpdate(
     minute = Math.floor(update.clock / 60);
   }
 
-  if (update.stats) {
-    const p1Goals = update.stats[1] || 0;
-    const p2Goals = update.stats[2] || 0;
-    const p1IsHome = match.participant1IsHome ?? true;
-    homeScore = p1IsHome ? p1Goals : p2Goals;
-    awayScore = p1IsHome ? p2Goals : p1Goals;
-  }
+  // Scores are driven by explicit goal events (see below), not by the raw
+  // stats map, whose stat IDs are not simple goal counts and produced false
+  // scores. Leave homeScore/awayScore as-is unless a goal event updates them.
 
   const events: Array<{ type: string; minute?: number; participant?: number; data?: Record<string, unknown> }> = [];
   const allActionTypes: string[] = [];
@@ -275,6 +273,22 @@ export async function processScoreUpdate(
       if (eventType) {
         minute = action.minute || minute;
         events.push(action);
+        // Keep the score in sync from explicit goal events. Own goals count for
+        // the opponent.
+        const pid = Number(action.participant);
+        const isHome =
+          (pid && match.participant1Id && pid === match.participant1Id) ||
+          (!pid && match.participant1IsHome);
+        const isAway =
+          (pid && match.participant2Id && pid === match.participant2Id) ||
+          (!pid && !match.participant1IsHome);
+        if (eventType === 'goal') {
+          if (isHome) homeScore += 1;
+          else if (isAway) awayScore += 1;
+        } else if (eventType === 'own_goal') {
+          if (isHome) awayScore += 1;
+          else if (isAway) homeScore += 1;
+        }
       }
     }
   }
@@ -295,10 +309,13 @@ export async function processScoreUpdate(
     if (!eventType) continue;
 
         const eventId = `${fixtureId}-${action.type}-${action.minute || 0}-${action.participant || 0}`;
+        // TxLINE's Participant field is the team ID (not 1/2), so map it to
+        // home/away via the fixture's stored participant IDs.
+        const pid = Number(action.participant);
         const team =
-          action.participant === 1
+          pid && match.participant1Id && pid === match.participant1Id
             ? match.homeTeam
-            : action.participant === 2
+            : pid && match.participant2Id && pid === match.participant2Id
               ? match.awayTeam
               : undefined;
     const description = getEventDescription(eventType, { minute: action.minute, participant: action.participant }, match);
