@@ -10,7 +10,7 @@ const TOKEN_KEY = 'pitchside_token';
 const ADDRESS_KEY = 'pitchside_wallet';
 
 export function WalletButton() {
-  const { publicKey, connected, connecting, connect, disconnect, signMessage } = useWallet();
+  const { publicKey, connected, connecting, select, connect, disconnect, signMessage, wallets } = useWallet();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState(false);
@@ -64,6 +64,20 @@ export function WalletButton() {
     authenticate();
   }, [connected, publicKey, signMessage, authed, disconnect]);
 
+  async function handleConnect() {
+    try {
+      setError(null);
+      const phantom = wallets.find((w) => w.adapter.name.toLowerCase().includes('phantom'));
+      if (phantom && !connected) {
+        select(phantom.adapter.name);
+      }
+      await connect();
+    } catch (err) {
+      console.error('Wallet connect failed:', err);
+      setError('Could not open wallet. Make sure Phantom is installed.');
+    }
+  }
+
   function handleDisconnect() {
     try {
       disconnect();
@@ -99,7 +113,7 @@ export function WalletButton() {
   return (
     <div className="flex items-center gap-2">
       <button
-        onClick={() => connect()}
+        onClick={handleConnect}
         disabled={connecting || loading}
         className="flex items-center justify-center gap-2 rounded-xl bg-pitch px-4 py-2 text-sm font-semibold text-midnight transition-all hover:opacity-90 disabled:opacity-60"
       >
