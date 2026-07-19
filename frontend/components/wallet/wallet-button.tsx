@@ -1,6 +1,7 @@
 'use client';
 
 import { useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Wallet, LogOut, Loader2, AlertCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { fetchAuthChallenge, verifyAuthSignature } from '@/services/api';
@@ -10,7 +11,8 @@ const TOKEN_KEY = 'pitchside_token';
 const ADDRESS_KEY = 'pitchside_wallet';
 
 export function WalletButton() {
-  const { publicKey, connected, connecting, select, connect, disconnect, signMessage, wallets } = useWallet();
+  const { publicKey, connected, connecting, disconnect, signMessage } = useWallet();
+  const { setVisible } = useWalletModal();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState(false);
@@ -64,18 +66,9 @@ export function WalletButton() {
     authenticate();
   }, [connected, publicKey, signMessage, authed, disconnect]);
 
-  async function handleConnect() {
-    try {
-      setError(null);
-      const phantom = wallets.find((w) => w.adapter.name.toLowerCase().includes('phantom'));
-      if (phantom && !connected) {
-        select(phantom.adapter.name);
-      }
-      await connect();
-    } catch (err) {
-      console.error('Wallet connect failed:', err);
-      setError('Could not open wallet. Make sure Phantom is installed.');
-    }
+  function handleConnect() {
+    setError(null);
+    setVisible(true);
   }
 
   function handleDisconnect() {

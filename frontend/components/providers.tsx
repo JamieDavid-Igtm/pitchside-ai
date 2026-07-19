@@ -11,7 +11,7 @@ export function SolanaWalletProviders({ children }: { children: ReactNode }) {
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
   return (
-    <WalletProvider wallets={wallets} autoConnect={false}>
+    <WalletProvider wallets={wallets} autoConnect={false} onError={(err) => console.error('Wallet error:', err)}>
       <WalletModalProvider>{children}</WalletModalProvider>
     </WalletProvider>
   );
