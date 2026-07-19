@@ -18,7 +18,7 @@ function txlineMatchId(fixtureId: number | string) {
 import { processOddsShiftWithAI } from './services/ai-pipeline.service.js';
 import { isSignificantOddsShift } from './services/odds.service.js';
 import { dispatchOddsMovementNotification } from './services/notification.service.js';
-import { setupTelegramBot, startTelegramLink as startTelegramLinkService } from './services/telegram.service.js';
+import { setupTelegramBot, startTelegramLink as startTelegramLinkService, processTelegramUpdate } from './services/telegram.service.js';
 import { generateMatchStory, getMatchStory } from './services/story.service.js';
 import { User, NotificationLog } from './models/index.js';
 import {
@@ -306,6 +306,16 @@ app.get('/api/v1/notifications/:wallet', async (req, res) => {
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+  }
+});
+
+app.post('/api/v1/telegram/webhook', async (req, res) => {
+  try {
+    await processTelegramUpdate(req.body);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Telegram webhook processing failed:', error);
+    res.sendStatus(500);
   }
 });
 

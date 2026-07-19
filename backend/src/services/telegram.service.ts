@@ -203,8 +203,31 @@ export async function setupTelegramBot(): Promise<boolean> {
     }
   });
 
+  if (config.telegramWebhookUrl) {
+    try {
+      await botInstance.setWebHook(config.telegramWebhookUrl, {
+        drop_pending_updates: true,
+      });
+      console.log(`Telegram webhook set to ${config.telegramWebhookUrl}`);
+    } catch (error) {
+      console.error('Failed to set Telegram webhook:', error);
+    }
+  } else {
+    console.log('TELEGRAM_WEBHOOK_URL not set — Telegram updates will not be received.');
+  }
+
   console.log('Telegram bot listening for /start messages.');
   return true;
+}
+
+export async function processTelegramUpdate(update: unknown): Promise<void> {
+  const botInstance = getTelegramBot();
+  if (!botInstance) return;
+  try {
+    await botInstance.processUpdate(update as Parameters<TelegramBot['processUpdate']>[0]);
+  } catch (error) {
+    console.error('Failed to process Telegram update:', error);
+  }
 }
 
 export async function handleBotStart(chatId: number, text: string): Promise<void> {
