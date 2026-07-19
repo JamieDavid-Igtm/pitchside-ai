@@ -359,11 +359,33 @@ async function startTxLINEStreams() {
 
   (async () => {
     try {
-      for await (const update of txlineClient.streamScores()) {
+      for await (const raw of txlineClient.streamScores()) {
         try {
-          if (update.fixtureId) {
-            await processScoreUpdate(update, io);
-          }
+          // TxLINE emits one raw event per action with PascalCase fields
+          // (FixtureId, Action, Clock, Stats, ...), not the {fixtureId, actions}
+          // shape our processor expects. Normalize it.
+          const fixtureId = raw.FixtureId ?? raw.fixtureId;
+          if (!fixtureId) continue;
+
+          const action = raw.Action
+            ? {
+                type: String(raw.Action),
+                minute: raw.Clock?.Seconds ?? raw.minute,
+                participant: raw.Participant ?? raw.participant,
+                data: raw.Data ?? raw.data,
+              }
+            : undefined;
+
+          const update = {
+            seq: raw.Seq ?? raw.seq,
+            ts: raw.Ts ?? raw.ts,
+            fixtureId: Number(fixtureId),
+            gameState: raw.GameState ?? raw.gameState,
+            stats: raw.Stats ?? raw.stats,
+            actions: action ? [action] : raw.actions,
+          };
+
+          await processScoreUpdate(update as Parameters<typeof processScoreUpdate>[0], io);
         } catch (error) {
           console.error('Error processing score update:', error);
         }
