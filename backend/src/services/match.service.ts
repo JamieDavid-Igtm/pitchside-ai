@@ -1,4 +1,8 @@
-import { Match, MatchEvent, IMatch, IMatchEvent } from '../models/index.js';
+import { Match, MatchEvent, Commentary, IMatch, IMatchEvent } from '../models/index.js';
+
+// Tracks matches that have already received their opening AI pundit take, so we
+// don't spam a fresh take on every snapshot refresh while the clock is frozen.
+const announcedLive = new Set<string>();
 import { txlineClient } from '../services/txline.service.js';
 import { processMatchEventWithAI } from '../services/ai-pipeline.service.js';
 import { generatePunditForEvent, generateMoodForEvent, type AIEventInput } from '../services/ai.service.js';
@@ -191,8 +195,17 @@ export async function refreshLiveMinutes(
         io.to(`match:${match._id.toString()}`).emit('match:update', updated);
       }
 
-      // AI pundit on every 5-minute milestone while the match is live.
-      if (status === 'live' && minute != null && minute % 5 === 0 && minute !== match.minute) {
+      // Fire the AI pundit whenever the live minute advances (so the pundit
+      // keeps narrating as the clock moves), and also seed an opening take
+      // the first time a match is seen live so the assistant is never silent.
+      const commentaryCount = await Commentary.countDocuments({ matchId: match._id.toString() });
+      const shouldTalk =
+        status === 'live' &&
+        minute != null &&
+        (minute !== match.minute || (commentaryCount === 0 && !announcedLive.has(match._id.toString())));
+
+      if (shouldTalk) {
+        announcedLive.add(match._id.toString());
         const eventId = `milestone-${match._id.toString()}-${minute}`;
         const baseInput: AIEventInput = {
           matchId: match._id.toString(),
