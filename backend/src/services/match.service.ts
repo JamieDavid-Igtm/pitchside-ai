@@ -149,7 +149,7 @@ export async function syncFixtures(
 }
 
 export async function processScoreUpdate(
-  update: { fixtureId: number; gameState: number; stats?: Record<number, number>; actions?: Array<{ type: string; minute?: number; participant?: number; data?: Record<string, unknown> }> },
+  update: { fixtureId: number; gameState?: number | string; clock?: number; stats?: Record<number, number>; actions?: Array<{ type: string; minute?: number; participant?: number; data?: Record<string, unknown> }> },
   io: { to: (room: string) => { emit: (event: string, data: unknown) => void } }
 ) {
   if (!isDatabaseConnected()) {
@@ -164,6 +164,10 @@ export async function processScoreUpdate(
   let homeScore = match.homeScore;
   let awayScore = match.awayScore;
   let minute = match.minute;
+
+  if (typeof update.clock === 'number' && update.clock >= 0) {
+    minute = Math.floor(update.clock / 60);
+  }
 
   if (update.stats) {
     const p1Goals = update.stats[1] || 0;

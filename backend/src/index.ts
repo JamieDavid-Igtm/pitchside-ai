@@ -382,6 +382,7 @@ async function startTxLINEStreams() {
             fixtureId: Number(fixtureId),
             gameState: raw.GameState ?? raw.gameState,
             stats: raw.Stats ?? raw.stats,
+            clock: raw.Clock?.Seconds ?? raw.clock?.Seconds ?? raw.clock,
             actions: action ? [action] : raw.actions,
           };
 

@@ -15,7 +15,8 @@ export interface TxLINEScoreUpdate {
   seq: number;
   ts: number;
   fixtureId: number;
-  gameState: number;
+  gameState?: number | string;
+  clock?: number;
   stats?: Record<number, number>;
   actions?: TxLINEAction[];
 }
