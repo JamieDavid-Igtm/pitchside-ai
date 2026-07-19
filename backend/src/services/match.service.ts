@@ -10,14 +10,60 @@ function isDatabaseConnected(): boolean {
   return mongoose.connection.readyState === 1;
 }
 
-function mapGameStateToStatusLocal(gameState: number): MatchStatus {
+function mapGameStateToStatusLocal(gameState: number | string | undefined): MatchStatus {
+  if (gameState === undefined) return 'scheduled';
+  const key = typeof gameState === 'string' ? Number(gameState) : gameState;
   const map: Record<number, MatchStatus> = {
     1: 'scheduled', 2: 'live', 3: 'halftime', 4: 'live', 5: 'fulltime',
     6: 'cancelled', 7: 'live', 8: 'halftime', 9: 'live', 10: 'fulltime',
     11: 'live', 12: 'live', 13: 'fulltime', 14: 'live', 15: 'cancelled',
     16: 'cancelled', 17: 'cancelled', 18: 'scheduled', 19: 'postponed',
   };
-  return map[gameState] || 'scheduled';
+  return map[key] || 'scheduled';
+}
+
+// In-progress actions that prove a match is actually being played (TxLINE's
+// `GameState` field is unreliable and often stuck on "scheduled" even while live).
+const LIVE_ACTION_TYPES = new Set([
+  'kickoff', 'goal', 'own_goal', 'penalty_scored', 'penalty_missed', 'penalty',
+  'yellow_card', 'red_card', 'second_yellow_card', 'substitution', 'injury', 'var',
+  'shot', 'corner', 'free_kick', 'throw_in', 'goal_kick', 'possible',
+  'possession', 'safe_possession', 'danger_possession', 'high_danger_possession',
+  'attack_possession', 'comment', 'clock_adjustment',
+]);
+
+const END_ACTION_TYPES = new Set(['fulltime', 'game_finalised', 'halftime']);
+
+// Derive the match status from the live action stream. This avoids relying on
+// TxLINE's broken/unreliable `GameState` field. It never regresses a match that
+// is already live/fulltime back to scheduled.
+function deriveStatusFromActions(
+  actionTypes: string[],
+  currentStatus: MatchStatus,
+  gameState?: number | string
+): MatchStatus {
+  const hasEnd = actionTypes.some((t) => END_ACTION_TYPES.has(t));
+  const hasLive = actionTypes.some((t) => LIVE_ACTION_TYPES.has(t));
+
+  if (currentStatus === 'fulltime' || currentStatus === 'cancelled' || currentStatus === 'postponed') {
+    // Only allow a real gameState downgrade for cancellations; otherwise keep terminal state.
+    if (hasEnd && (actionTypes.includes('fulltime') || actionTypes.includes('game_finalised'))) {
+      return 'fulltime';
+    }
+    return currentStatus;
+  }
+
+  if (hasEnd) {
+    if (actionTypes.includes('fulltime') || actionTypes.includes('game_finalised')) return 'fulltime';
+    if (actionTypes.includes('halftime')) return 'halftime';
+  }
+
+  if (hasLive) return 'live';
+
+  // Fallback to gameState mapping, but never force a live match back to scheduled.
+  const fromState = mapGameStateToStatusLocal(gameState);
+  if (currentStatus === 'live' && fromState === 'scheduled') return 'live';
+  return fromState;
 }
 
 function getEventType(actionType: string): EventType | null {
@@ -66,9 +112,15 @@ export async function syncFixtures(
     }
     const homeTeam = fixture.Participant1IsHome ? fixture.Participant1 : fixture.Participant2;
     const awayTeam = fixture.Participant1IsHome ? fixture.Participant2 : fixture.Participant1;
-    const status = mapGameStateToStatusLocal(fixture.GameState);
+    const seedStatus = mapGameStateToStatusLocal(fixture.GameState);
 
     try {
+      const existing = await Match.findOne({ txlineMatchId: String(fixture.FixtureId) }).lean();
+      // TxLINE's GameState is unreliable (often stuck on "scheduled" while live),
+      // so never downgrade an in-progress/finished match back to scheduled on re-sync.
+      const status =
+        existing && existing.status !== 'scheduled' ? existing.status : seedStatus;
+
       const match = await Match.findOneAndUpdate(
         { txlineMatchId: String(fixture.FixtureId) },
         {
@@ -122,8 +174,10 @@ export async function processScoreUpdate(
   }
 
   const events: Array<{ type: string; minute?: number; participant?: number; data?: Record<string, unknown> }> = [];
+  const allActionTypes: string[] = [];
   if (update.actions) {
     for (const action of update.actions) {
+      allActionTypes.push(action.type);
       const eventType = getEventType(action.type);
       if (eventType) {
         minute = action.minute || minute;
@@ -135,7 +189,7 @@ export async function processScoreUpdate(
   match.homeScore = homeScore;
   match.awayScore = awayScore;
   match.minute = minute;
-  match.status = mapGameStateToStatusLocal(update.gameState);
+  match.status = deriveStatusFromActions(allActionTypes, match.status, update.gameState);
 
   if (match.momentum !== undefined) {
     match.currentMood = getMoodFromMomentum(match.momentum);

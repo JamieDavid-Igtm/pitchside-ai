@@ -429,6 +429,12 @@ async function startServer() {
 
   setupTelegramBot().catch((err) => console.error('Telegram bot setup failed:', err));
   startTxLINEStreams();
+
+  // Periodically re-sync fixtures so newly added matches are picked up and
+  // statuses self-heal (the live status is driven by the action stream).
+  setInterval(() => {
+    syncFixtures(io).catch((err) => console.error('Periodic fixture sync failed:', err));
+  }, 60_000);
 }
 
 startServer().catch((error) => {
