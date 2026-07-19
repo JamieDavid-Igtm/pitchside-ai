@@ -30,6 +30,10 @@ JWT_EXPIRES_IN=24h
 
 Verify health: `GET https://<railway-domain>/health` → `{ "status": "healthy" }`.
 
+> Note: the backend serves all routes under `/api/v1`, so the frontend's
+> `NEXT_PUBLIC_API_URL` must be `https://<railway-domain>/api/v1` (include the
+> prefix). `NEXT_PUBLIC_SOCKET_URL` is the bare origin `https://<railway-domain>`.
+
 ## 2. Frontend → Vercel
 
 1. Import the repo at https://vercel.com → select this repo.
