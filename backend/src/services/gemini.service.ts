@@ -58,11 +58,12 @@ const TONE_MAP: Record<AIModel, string> = {
 };
 
 function toGeminiSchema(model: AIModel): Schema {
+  // Note: Gemini's API rejects `additionalProperties`, so omit it here. The
+  // required fields are still enforced via GEMINI_REQUIRED for our own parsing.
   const base: Record<string, unknown> = {
     type: 'object',
     properties: GEMINI_PROPERTIES[model],
     required: GEMINI_REQUIRED[model],
-    additionalProperties: false,
   };
   return base as unknown as Schema;
 }
@@ -132,7 +133,6 @@ export async function generateStructured<T = unknown>(
     throw new Error('Gemini client is not configured');
   }
 
-  const schema = SCHEMA_MAP[model];
   const geminiModel = genAI.getGenerativeModel({
     model: config.geminiModel,
   });
