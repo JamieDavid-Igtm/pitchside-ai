@@ -205,9 +205,7 @@ export async function setupTelegramBot(): Promise<boolean> {
 
   if (config.telegramWebhookUrl) {
     try {
-      await botInstance.setWebHook(config.telegramWebhookUrl, {
-        drop_pending_updates: true,
-      });
+      await botInstance.setWebHook(config.telegramWebhookUrl);
       console.log(`Telegram webhook set to ${config.telegramWebhookUrl}`);
     } catch (error) {
       console.error('Failed to set Telegram webhook:', error);
